@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useSession } from "@/lib/session";
 
@@ -8,7 +8,15 @@ import { useSession } from "@/lib/session";
 export function AuthForm() {
   const router = useRouter();
   const { login } = useSession();
-  const [tab, setTab] = useState<"in" | "up">("in");
+  const modo = useSearchParams().get("modo");
+  const initialTab = modo === "registro" ? "up" : "in";
+  const [tab, setTab] = useState<"in" | "up">(initialTab);
+  // Next conserva el estado de /auth entre navegaciones: resincroniza la tab si cambia ?modo.
+  const [prevModo, setPrevModo] = useState(modo);
+  if (modo !== prevModo) {
+    setPrevModo(modo);
+    setTab(initialTab);
+  }
   const [user, setUser] = useState("");
   const [pass, setPass] = useState("");
   const [email, setEmail] = useState("");
@@ -16,12 +24,12 @@ export function AuthForm() {
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     login({ name: (user || "PLAYER1").toUpperCase().slice(0, 10) });
-    router.push("/");
+    router.push("/biblioteca");
   };
 
   const asGuest = () => {
     login(null);
-    router.push("/");
+    router.push("/biblioteca");
   };
 
   return (
