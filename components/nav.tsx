@@ -5,10 +5,11 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { useSession } from "@/lib/session";
 
-type Section = "biblioteca" | "salon" | "auth";
+type Section = "inicio" | "biblioteca" | "salon" | "auth";
 
 function sectionOf(pathname: string): Section | null {
-  if (pathname === "/" || pathname.startsWith("/juegos")) return "biblioteca";
+  if (pathname === "/") return "inicio";
+  if (pathname.startsWith("/biblioteca") || pathname.startsWith("/juegos")) return "biblioteca";
   if (pathname.startsWith("/salon")) return "salon";
   if (pathname.startsWith("/auth")) return "auth";
   return null;
@@ -32,7 +33,10 @@ export function Nav() {
           </div>
         </Link>
         <div className="links">
-          <Link href="/" className={cls("biblioteca")}>
+          <Link href="/" className={cls("inicio")}>
+            Inicio
+          </Link>
+          <Link href="/biblioteca" className={cls("biblioteca")}>
             Biblioteca
           </Link>
           <Link href="/salon" className={cls("salon")}>
@@ -61,7 +65,10 @@ export function Nav() {
       <div className={"av-mobile-backdrop" + (open ? " open" : "")} onClick={close} />
       <aside className={"av-mobile-panel" + (open ? " open" : "")} aria-hidden={!open}>
         <div className="pixel neon-cyan mb-4 text-[11px]">MENÚ</div>
-        <Link href="/" className={cls("biblioteca")} onClick={close}>
+        <Link href="/" className={cls("inicio")} onClick={close}>
+          Inicio
+        </Link>
+        <Link href="/biblioteca" className={cls("biblioteca")} onClick={close}>
           Biblioteca
         </Link>
         <Link href="/salon" className={cls("salon")} onClick={close}>
