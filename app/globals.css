@@ -957,6 +957,33 @@ a { color: inherit; text-decoration: none; }
   .av-player { padding: 0 16px 32px; }
 }
 
+/* Móvil estrecho (≤420px): evita que tabla del Salón y stat-strip del Detalle
+   se recorten (desbordaban ~10–26px a 360px en el template original). */
+@media (max-width: 420px) {
+  .hall-table .th, .hall-table .tr { grid-template-columns: 46px minmax(0, 1fr) 80px 72px; gap: 6px; font-size: 11px; }
+  .hall-table .th { font-size: 7px; letter-spacing: 0.06em; }
+  .hall-table .tr .sc { font-size: 10px; }
+  .stat-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .stat-strip > div { padding: 12px 10px; }
+  .stat-strip .v { font-size: 12px; }
+}
+
+/* Accesibilidad: foco visible solo con teclado (el template no lo trae). */
+:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+.av-search input:focus-visible,
+.field input:focus-visible,
+.modal .input-row input:focus-visible { outline: none; } /* ya tienen su borde neón en :focus */
+
+/* Accesibilidad: sin animaciones decorativas si el usuario lo pide. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .hall-table .tr { opacity: 1; }
+}
+
 /* misc */
 .divider { height: 1px; background: var(--line); margin: 8px 0; }
 .fade-in { animation: fadeIn 240ms ease-out; }
