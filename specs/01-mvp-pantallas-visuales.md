@@ -1,6 +1,6 @@
 # SPEC 01 — MVP visual de Arcade Vault
 
-> **Status:** Aprobado
+> **Status:** Implementado
 > **Depends on:** —
 > **Date:** 2026-11-08
 > **Objective:** Portar a Next.js App Router las cinco pantallas de `references/templates/` (Biblioteca, Detalle, Reproductor, Auth, Salón de la Fama) con datos mock y sin lógica de juego real.
@@ -174,12 +174,12 @@ Server Components por defecto. `"use client"` solo en los componentes marcados.
 
 ## Risks
 
-| Risk                                                                                      | Mitigation                                                                                     |
-| ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Risk                                                                                      | Mitigation                                                                                                                                                                                                 |
+| ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Hydration mismatch al leer localStorage en render                                         | Leer `av_user` con `useSyncExternalStore` (`getServerSnapshot` → `null`); primer render siempre como invitado. `useEffect` + `setState` descartado: lo prohíbe la regla `react-hooks/set-state-in-effect`. |
-| `cacheComponents` / `params` como Promise cambian semántica de rutas dinámicas            | Consultar `node_modules/next/dist/docs/01-app/` antes del paso 6; usar `generateStaticParams`. |
-| `useSearchParams`/`usePathname` en Nav pueden requerir `<Suspense>` con `cacheComponents` | Revisar error de build y envolver Nav en `Suspense` si Next lo exige.                          |
-| Diferencias con React 18 del template (`React.Fragment`, `window.*` globals)              | Usar imports ES y fragmentos `<>`; sin globals en `window`.                                    |
+| `cacheComponents` / `params` como Promise cambian semántica de rutas dinámicas            | Consultar `node_modules/next/dist/docs/01-app/` antes del paso 6; usar `generateStaticParams`.                                                                                                             |
+| `useSearchParams`/`usePathname` en Nav pueden requerir `<Suspense>` con `cacheComponents` | Revisar error de build y envolver Nav en `Suspense` si Next lo exige.                                                                                                                                      |
+| Diferencias con React 18 del template (`React.Fragment`, `window.*` globals)              | Usar imports ES y fragmentos `<>`; sin globals en `window`.                                                                                                                                                |
 
 ## What is **not** in this spec
 
