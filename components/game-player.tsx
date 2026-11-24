@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useReducer, useRef, useState, useSyncExternalStore, type MouseEvent } from "react";
+import { useEffect, useReducer, useRef, useState, useSyncExternalStore, useTransition, type MouseEvent } from "react";
+import { submitScore, type ScoreErrorCode } from "@/app/juegos/actions";
 import { GameCanvas, type GameCanvasHandle } from "@/components/game-canvas";
 import { getEngine } from "@/lib/engines/registry";
 import type { EngineFactory, EngineState, EngineStats } from "@/lib/engines/types";
@@ -17,12 +18,10 @@ export function GamePlayer({ game }: { game: Game }) {
 
 // ── Piezas compartidas ────────────────────────────────────────────────────────
 
-/** Nombre del jugador: null = aún no editado → nombre de la sesión (se hidrata tras montar). */
+/** Nombre del jugador: el username de la sesión (fijo) o INVITADO. Se hidrata tras montar. */
 function usePlayerName() {
   const { user } = useSession();
-  const [nameEdit, setNameEdit] = useState<string | null>(null);
-  const name = nameEdit ?? user?.name ?? "INVITADO";
-  return [name, (v: string) => setNameEdit(v.toUpperCase().slice(0, 10))] as const;
+  return user?.name ?? "INVITADO";
 }
 
 function HudStats({ name, score, lives, level, powerUp = 0 }: {
@@ -83,35 +82,70 @@ function CrtBottom({ game }: { game: Game }) {
   );
 }
 
-function GameOverModal({ score, name, onName, saved, onSave, onRestart }: {
-  score: number;
-  name: string;
-  onName: (v: string) => void;
-  saved: boolean;
-  onSave: () => void;
-  onRestart: () => void;
-}) {
+const SCORE_ERRORS: Record<ScoreErrorCode, string> = {
+  auth: "[ERR] Tu sesión expiró. Inicia sesión de nuevo.",
+  invalid: "[ERR] Puntuación no válida.",
+  not_playable: "[ERR] Puntuación no válida.",
+  config: "[ERR] Servidor no configurado.",
+  server: "[ERR] Fallo de conexión. Reintenta.",
+};
+
+/**
+ * Bloque de guardado del modal. Su estado (guardado / error) vive aquí: el modal se
+ * desmonta en JUGAR DE NUEVO, así que cada partida empieza sin error ni "guardada".
+ */
+function SaveScore({ game, score }: { game: Game; score: number }) {
+  const { user, loading } = useSession();
+  const [pending, startTransition] = useTransition();
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<ScoreErrorCode | null>(null);
+
+  if (!game.playable) return <div className="score-note demo pixel">PARTIDA DEMO · NO PUNTÚA</div>;
+  if (saved) return <div className="toast-saved">▸ PUNTUACIÓN GUARDADA_</div>;
+  if (!loading && !user) {
+    return (
+      <Link href="/auth" className="score-note login pixel">
+        INICIA SESIÓN PARA COMPETIR
+      </Link>
+    );
+  }
+
+  const save = () => {
+    setError(null);
+    startTransition(async () => {
+      const res = await submitScore(game.id, score);
+      if (res.ok) setSaved(true);
+      else setError(res.error);
+    });
+  };
+
+  return (
+    <>
+      <div className="input-row">
+        <div className="player-name" aria-label="Jugador">
+          {user?.name ?? "···"}
+        </div>
+        <button className="btn yellow" onClick={save} disabled={loading || pending}>
+          {pending ? "▶ GUARDANDO…" : "GUARDAR PUNTUACIÓN"}
+        </button>
+      </div>
+      {error && (
+        <div className="terminal-error modal-error" role="alert">
+          {SCORE_ERRORS[error]}
+        </div>
+      )}
+    </>
+  );
+}
+
+function GameOverModal({ game, score, onRestart }: { game: Game; score: number; onRestart: () => void }) {
   return (
     <div className="modal-bd">
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="game-over-title">
         <h2 id="game-over-title">FIN DEL JUEGO</h2>
         <div className="final-label">PUNTUACIÓN FINAL</div>
         <div className="final">{fmt(score)}</div>
-        {!saved ? (
-          <div className="input-row">
-            <input
-              value={name}
-              onChange={(e) => onName(e.target.value)}
-              placeholder="TUS INICIALES"
-              aria-label="Nombre para la puntuación"
-            />
-            <button className="btn yellow" onClick={onSave}>
-              GUARDAR PUNTUACIÓN
-            </button>
-          </div>
-        ) : (
-          <div className="toast-saved">▸ PUNTUACIÓN GUARDADA_</div>
-        )}
+        <SaveScore game={game} score={score} />
         <div className="actions">
           <button className="btn" onClick={onRestart}>
             JUGAR DE NUEVO
@@ -145,14 +179,12 @@ function useHasFinePointer() {
 }
 
 function EnginePlayer({ game, factory }: { game: Game; factory: EngineFactory }) {
-  const { saveScore } = useSession();
-  const [name, setName] = usePlayerName();
+  const name = usePlayerName();
   const engine = useRef<GameCanvasHandle>(null);
   const [stats, setStats] = useState<EngineStats>(INITIAL_STATS);
   const [engineState, setEngineState] = useState<EngineState>("ready");
   const [over, setOver] = useState(false);
   const [finalScore, setFinalScore] = useState(0);
-  const [saved, setSaved] = useState(false);
   const hasKeyboard = useHasFinePointer();
 
   const paused = engineState === "paused";
@@ -160,15 +192,11 @@ function EnginePlayer({ game, factory }: { game: Game; factory: EngineFactory })
   const onStateChange = (s: EngineState) => {
     setEngineState(s);
     // Motor nuevo (montaje o vuelta a la página) o reinicio: sin modal pendiente.
-    if (s === "ready" || s === "playing") {
-      setOver(false);
-      if (s === "ready") setSaved(false);
-    }
+    if (s === "ready" || s === "playing") setOver(false);
   };
 
   const onGameOver = (score: number) => {
     setFinalScore(score);
-    setSaved(false);
     setOver(true);
   };
 
@@ -185,7 +213,6 @@ function EnginePlayer({ game, factory }: { game: Game; factory: EngineFactory })
   };
 
   const restart = () => {
-    setSaved(false);
     setOver(false);
     engine.current?.restart();
   };
@@ -251,17 +278,7 @@ function EnginePlayer({ game, factory }: { game: Game; factory: EngineFactory })
       </div>
 
       {over && (
-        <GameOverModal
-          score={finalScore}
-          name={name}
-          onName={setName}
-          saved={saved}
-          onSave={() => {
-            saveScore({ game: game.id, score: finalScore, name });
-            setSaved(true);
-          }}
-          onRestart={restart}
-        />
+        <GameOverModal game={game} score={finalScore} onRestart={restart} />
       )}
     </div>
   );
@@ -286,12 +303,10 @@ function runReducer(state: Run, action: { type: "tick"; inc: number } | { type: 
 }
 
 function SimulatedPlayer({ game }: { game: Game }) {
-  const { saveScore } = useSession();
-  const [name, setName] = usePlayerName();
+  const name = usePlayerName();
   const [run, dispatch] = useReducer(runReducer, INITIAL);
   const [paused, setPaused] = useState(false);
   const [over, setOver] = useState(false);
-  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     if (over || paused) return;
@@ -303,7 +318,6 @@ function SimulatedPlayer({ game }: { game: Game }) {
     dispatch({ type: "restart" });
     setPaused(false);
     setOver(false);
-    setSaved(false);
   };
 
   return (
@@ -338,17 +352,7 @@ function SimulatedPlayer({ game }: { game: Game }) {
       </div>
 
       {over && (
-        <GameOverModal
-          score={run.score}
-          name={name}
-          onName={setName}
-          saved={saved}
-          onSave={() => {
-            saveScore({ game: game.id, score: run.score, name });
-            setSaved(true);
-          }}
-          onRestart={restart}
-        />
+        <GameOverModal game={game} score={run.score} onRestart={restart} />
       )}
     </div>
   );

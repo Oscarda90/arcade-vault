@@ -38,7 +38,7 @@ export function GameCard({ game, onSelect }: { game: Game; onSelect: (game: Game
         <div className="row">
           <div className="score-badge">
             <span>MEJOR PUNTUACIÓN</span>
-            <b>{game.best.toLocaleString("es-ES")}</b>
+            <b>{game.best > 0 ? game.best.toLocaleString("es-ES") : "—"}</b>
           </div>
           <button
             className={"btn " + BTN_COLOR[game.color]}

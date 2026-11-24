@@ -1,27 +1,29 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Leaderboard } from "@/components/leaderboard";
-import { GAMES, getGame, seededScores } from "@/lib/games";
+import { getGameById, getGames, getLeaderboard } from "@/lib/data/games";
+import { formatPlays } from "@/lib/games";
 
 // Fuera de la validación de navegación instantánea: leer params fuera de <Suspense>
 // mantiene el 404 real para ids inexistentes (con Suspense respondería 200).
 export const instant = false;
 
-export function generateStaticParams() {
-  return GAMES.map((g) => ({ id: g.id }));
+export async function generateStaticParams() {
+  const games = await getGames();
+  return games.map((g) => ({ id: g.id }));
 }
 
 export async function generateMetadata({ params }: PageProps<"/juegos/[id]">) {
   const { id } = await params;
-  const game = getGame(id);
+  const game = await getGameById(id);
   return { title: game ? `${game.title} · Arcade Vault` : "Juego no encontrado · Arcade Vault" };
 }
 
 export default async function GameDetailPage({ params }: PageProps<"/juegos/[id]">) {
   const { id } = await params;
-  const game = getGame(id);
+  const game = await getGameById(id);
   if (!game) notFound();
-  const scores = seededScores(id.length * 17 + 3, 10);
+  const scores = game.playable ? await getLeaderboard(game.id, 10) : [];
 
   return (
     <div className="av-detail fade-in">
@@ -41,12 +43,12 @@ export default async function GameDetailPage({ params }: PageProps<"/juegos/[id]
           <div className="stat-strip">
             <div>
               <div className="l">Partidas</div>
-              <div className="v">{game.plays}</div>
+              <div className="v">{formatPlays(game.plays)}</div>
             </div>
             <div>
               <div className="l">Mejor global</div>
               <div className="v text-magenta [text-shadow:0_0_6px_rgba(255,0,110,0.5)]">
-                {game.best.toLocaleString("es-ES")}
+                {game.best > 0 ? game.best.toLocaleString("es-ES") : "—"}
               </div>
             </div>
             <div>
@@ -66,7 +68,7 @@ export default async function GameDetailPage({ params }: PageProps<"/juegos/[id]
       </div>
 
       <aside>
-        <Leaderboard rows={scores} />
+        <Leaderboard rows={scores} playable={game.playable} />
       </aside>
     </div>
   );
