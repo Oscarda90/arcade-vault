@@ -5,7 +5,8 @@ import { LiveActivity } from "@/components/home/live-activity";
 import { MiniCard } from "@/components/home/mini-card";
 import { Pricing } from "@/components/home/pricing";
 import { Reveal } from "@/components/home/reveal";
-import { GAMES, type GameColor } from "@/lib/games";
+import { getGames } from "@/lib/data/games";
+import type { GameColor } from "@/lib/games";
 
 const FEATURES: { i: FeatureIconKind; t: string; d: string; c: GameColor }[] = [
   { i: "GAMEPAD", t: "JUEGOS CLÁSICOS", d: "Arkanoid, Tetris, Snake y muchos más. Los mejores arcades de todos los tiempos en un solo lugar.", c: "cyan" },
@@ -30,7 +31,8 @@ function SectionHead({ n, title, color }: { n: string; title: string; color: Gam
   );
 }
 
-export default function Home() {
+export default async function Home() {
+  const games = await getGames();
   return (
     <div className="home fade-in">
       <Reveal />
@@ -81,11 +83,11 @@ export default function Home() {
         </div>
       </section>
 
-      {/* GAMES PREVIEW */}
+      {/* VISTA PREVIA DE JUEGOS */}
       <section className="home-section reveal">
         <SectionHead n="02" title="JUEGOS DISPONIBLES AHORA" color="cyan" />
         <div className="mini-rail">
-          {GAMES.slice(0, 6).map((g) => (
+          {games.slice(0, 6).map((g) => (
             <MiniCard key={g.id} game={g} />
           ))}
         </div>

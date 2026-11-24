@@ -11,23 +11,15 @@ export interface User {
   name: string;
 }
 
-export interface SavedScore {
-  game: string;
-  score: number;
-  name: string;
-  at: number;
-}
-
 interface Session {
   user: User | null;
   loading: boolean; // true hasta resolver la sesión inicial
   logout: () => Promise<void>;
   refresh: () => Promise<void>; // re-lee sesión tras una Server Action
-  saveScore: (entry: Omit<SavedScore, "at">) => void;
 }
 
 const LEGACY_USER_KEY = "av_user"; // sesión mock de SPEC 01: se borra al montar
-const SCORES_KEY = "av_scores";
+const LEGACY_SCORES_KEY = "av_scores"; // puntajes locales hasta SPEC 05: se borra al montar (SPEC 06)
 
 const SessionContext = createContext<Session | null>(null);
 
@@ -80,6 +72,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     try {
       localStorage.removeItem(LEGACY_USER_KEY);
+      localStorage.removeItem(LEGACY_SCORES_KEY);
     } catch {}
 
     void refresh();
@@ -104,17 +97,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     await refresh();
   }, [refresh]);
 
-  const saveScore = useCallback((entry: Omit<SavedScore, "at">) => {
-    try {
-      const all = JSON.parse(localStorage.getItem(SCORES_KEY) || "[]") as SavedScore[];
-      all.push({ ...entry, at: Date.now() });
-      localStorage.setItem(SCORES_KEY, JSON.stringify(all));
-    } catch {}
-  }, []);
-
   const value = useMemo(
-    () => ({ user, loading, logout, refresh, saveScore }),
-    [user, loading, logout, refresh, saveScore],
+    () => ({ user, loading, logout, refresh }),
+    [user, loading, logout, refresh],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

@@ -1499,3 +1499,102 @@ a { color: inherit; text-decoration: none; }
 @media (prefers-reduced-motion: reduce) {
   .auth-err, .auth-err::after, .auth-card .btn[type="submit"]:disabled { animation: none; }
 }
+
+/* ===== SPEC 06: estados vacíos / demo del ranking y modal de guardado ===== */
+
+/* Vacío = invitación: filas-fantasma punteadas, como una tabla de arcade sin nombres. */
+.lb-empty,
+.hall-empty {
+  display: grid;
+  place-items: center;
+  min-height: 168px;
+  padding: 24px 16px;
+  font-size: 10px;
+  line-height: 1.8;
+  letter-spacing: 0.14em;
+  text-align: center;
+  color: var(--cyan);
+  text-shadow: 0 0 8px rgba(0, 245, 255, 0.45);
+  background:
+    repeating-linear-gradient(
+      180deg,
+      transparent 0 41px,
+      rgba(0, 245, 255, 0.12) 41px 42px
+    );
+  background-position: 0 -1px;
+  mask-image: linear-gradient(180deg, #000 55%, transparent);
+}
+.hall-empty { min-height: 220px; font-size: 11px; }
+
+/* Demo = apagado: scanlines diagonales tenues, sin glow. */
+.lb-empty.demo,
+.hall-empty.demo {
+  color: var(--ink-dim);
+  text-shadow: none;
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent 0 10px,
+    rgba(255, 255, 255, 0.035) 10px 11px
+  );
+  mask-image: none;
+}
+
+/* Puesto del podio sin jugador. */
+.podium-slot.empty { border-style: dashed; box-shadow: none; background: transparent; }
+.podium-slot.empty .rank-num { text-shadow: none; opacity: 0.55; }
+.podium-slot.empty .name { color: var(--ink-faint); }
+
+/* Modal: nombre fijo en la misma caja que ocupaba el input. */
+.modal .player-name {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  font-family: var(--pixel);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--cyan);
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.modal .input-row .btn:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
+.modal .input-row .btn:disabled:hover { color: inherit; }
+
+/* Nota en lugar del guardado: demo (apagada) o invitado (enlace a /auth). */
+.score-note {
+  display: block;
+  margin: 22px 0 12px;
+  padding: 14px 12px;
+  border: 1px dashed var(--ink-faint);
+  font-size: 10px;
+  line-height: 1.6;
+  letter-spacing: 0.12em;
+  color: var(--ink-dim);
+}
+.score-note.login {
+  border-color: var(--cyan);
+  color: var(--cyan);
+  text-decoration: none;
+  transition: box-shadow 160ms ease, color 160ms ease;
+}
+.score-note.login:hover { color: var(--ink); box-shadow: 0 0 14px rgba(0, 245, 255, 0.35), inset 0 0 10px rgba(0, 245, 255, 0.15); }
+
+/* Línea [ERR] del guardado, sobre la base .terminal-error de SPEC 03. */
+.modal .modal-error {
+  margin: 0 0 4px;
+  padding: 10px 12px;
+  font-size: 12px;
+  text-align: left;
+  color: var(--magenta);
+  text-shadow: 0 0 6px rgba(255, 0, 110, 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .score-note.login { transition: none; }
+}
