@@ -1,8 +1,12 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useSyncExternalStore } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { signOut } from "@/app/auth/actions";
+import { createClient } from "@/lib/supabase/client";
+import type { Database } from "@/lib/supabase/database.types";
 
-/** Sesión mock: nombre en mayúsculas, máx. 10 chars. */
+/** Usuario con sesión: name = profiles.username (mayúsculas, 3–10 chars). */
 export interface User {
   name: string;
 }
@@ -16,68 +20,89 @@ export interface SavedScore {
 
 interface Session {
   user: User | null;
-  login: (u: User | null) => void;
-  logout: () => void;
+  loading: boolean; // true hasta resolver la sesión inicial
+  logout: () => Promise<void>;
+  refresh: () => Promise<void>; // re-lee sesión tras una Server Action
   saveScore: (entry: Omit<SavedScore, "at">) => void;
 }
 
-const USER_KEY = "av_user";
+const LEGACY_USER_KEY = "av_user"; // sesión mock de SPEC 01: se borra al montar
 const SCORES_KEY = "av_scores";
 
 const SessionContext = createContext<Session | null>(null);
 
-// --- store externo sobre localStorage (para useSyncExternalStore) ---
-const listeners = new Set<() => void>();
-let cachedRaw: string | null = null;
-let cachedUser: User | null = null;
-
-function readRaw(): string | null {
+// Cliente del navegador; null si faltan env vars (la app sigue como invitado).
+function getClient(): SupabaseClient<Database> | null {
   try {
-    return localStorage.getItem(USER_KEY);
-  } catch {
+    return createClient();
+  } catch (err) {
+    console.error("[session]", err instanceof Error ? err.message : err);
     return null;
   }
 }
 
-function getSnapshot(): User | null {
-  const raw = readRaw();
-  // Snapshot estable: solo se re-parsea si cambió el string guardado.
-  if (raw !== cachedRaw) {
-    cachedRaw = raw;
-    try {
-      cachedUser = JSON.parse(raw || "null") as User | null;
-    } catch {
-      cachedUser = null;
-    }
-  }
-  return cachedUser;
-}
-
-// Servidor y primer render de hidratación: siempre invitado.
-const getServerSnapshot = (): User | null => null;
-
-function subscribe(cb: () => void) {
-  listeners.add(cb);
-  window.addEventListener("storage", cb); // cambios desde otras pestañas
-  return () => {
-    listeners.delete(cb);
-    window.removeEventListener("storage", cb);
-  };
-}
-
-function writeUser(u: User | null) {
-  try {
-    if (u) localStorage.setItem(USER_KEY, JSON.stringify(u));
-    else localStorage.removeItem(USER_KEY);
-  } catch {}
-  listeners.forEach((l) => l());
-}
-
 export function SessionProvider({ children }: { children: React.ReactNode }) {
-  const user = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  // Servidor e hidratación: invitado + loading, sin depender del navegador.
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  // Solo aplica el resultado de la lectura más reciente (evita carreras).
+  const requestId = useRef(0);
 
-  const login = useCallback((u: User | null) => writeUser(u), []);
-  const logout = useCallback(() => writeUser(null), []);
+  const refresh = useCallback(async () => {
+    const id = ++requestId.current;
+    let next: User | null = null;
+
+    const supabase = getClient();
+    if (supabase) {
+      try {
+        const {
+          data: { user: authUser },
+        } = await supabase.auth.getUser();
+        if (authUser) {
+          const { data, error } = await supabase
+            .from("profiles")
+            .select("username")
+            .eq("id", authUser.id)
+            .maybeSingle();
+          if (error) console.error("[session] Fallo al leer profiles:", error);
+          if (data) next = { name: data.username };
+        }
+      } catch (err) {
+        console.error("[session] Fallo al leer la sesión:", err);
+      }
+    }
+
+    if (id !== requestId.current) return;
+    setUser(next);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.removeItem(LEGACY_USER_KEY);
+    } catch {}
+
+    void refresh();
+
+    const supabase = getClient();
+    if (!supabase) return;
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
+        // Fuera del callback: llamar a supabase dentro de él puede bloquearse.
+        setTimeout(() => void refresh(), 0);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [refresh]);
+
+  const logout = useCallback(async () => {
+    await signOut();
+    await refresh();
+  }, [refresh]);
 
   const saveScore = useCallback((entry: Omit<SavedScore, "at">) => {
     try {
@@ -87,7 +112,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     } catch {}
   }, []);
 
-  const value = useMemo(() => ({ user, login, logout, saveScore }), [user, login, logout, saveScore]);
+  const value = useMemo(
+    () => ({ user, loading, logout, refresh, saveScore }),
+    [user, loading, logout, refresh, saveScore],
+  );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }
