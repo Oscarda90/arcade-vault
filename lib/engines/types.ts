@@ -1,11 +1,25 @@
 export type EngineState = "ready" | "playing" | "dead" | "paused" | "gameover";
 
+/** Stat propia de un juego que el HUD pinta tras NIVEL (LÍNEAS, 3X…). */
+export interface HudExtra {
+  /** estable, para React: "lines", "3x" */
+  key: string;
+  /** "Líneas", "3X" */
+  label: string;
+  /** ya formateado: "12", "4.2s" */
+  value: string;
+  /** omitido → cyan (color por defecto de .hud-stat .v) */
+  tone?: "magenta" | "yellow" | "green";
+}
+
 export interface EngineStats {
   score: number;
-  lives: number;
-  level: number;
-  /** segundos restantes de triple disparo, redondeado a 0.1; 0 = inactivo */
-  powerUp: number;
+  /** omitido → el HUD no muestra VIDAS */
+  lives?: number;
+  /** omitido → el HUD no muestra NIVEL */
+  level?: number;
+  /** en orden, después de NIVEL */
+  extras?: HudExtra[];
 }
 
 export interface EngineCallbacks {

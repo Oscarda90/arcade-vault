@@ -1,19 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useReducer, useRef, useState, useSyncExternalStore, useTransition, type MouseEvent } from "react";
+import { Fragment, useEffect, useReducer, useRef, useState, useSyncExternalStore, useTransition, type MouseEvent } from "react";
 import { submitScore, type ScoreErrorCode } from "@/app/juegos/actions";
 import { GameCanvas, type GameCanvasHandle } from "@/components/game-canvas";
-import { getEngine } from "@/lib/engines/registry";
-import type { EngineFactory, EngineState, EngineStats } from "@/lib/engines/types";
+import { getEngine, type EngineEntry } from "@/lib/engines/registry";
+import type { EngineState, EngineStats } from "@/lib/engines/types";
 import type { Game } from "@/lib/games";
 import { useSession } from "@/lib/session";
 
 const fmt = (n: number) => n.toLocaleString("es-ES");
 
 export function GamePlayer({ game }: { game: Game }) {
-  const factory = getEngine(game.id);
-  return factory ? <EnginePlayer game={game} factory={factory} /> : <SimulatedPlayer game={game} />;
+  const entry = getEngine(game.id);
+  return entry ? <EnginePlayer game={game} entry={entry} /> : <SimulatedPlayer game={game} />;
 }
 
 // ── Piezas compartidas ────────────────────────────────────────────────────────
@@ -24,13 +24,7 @@ function usePlayerName() {
   return user?.name ?? "INVITADO";
 }
 
-function HudStats({ name, score, lives, level, powerUp = 0 }: {
-  name: string;
-  score: number;
-  lives: number;
-  level: number;
-  powerUp?: number;
-}) {
+function HudStats({ name, score, lives, level, extras = [] }: EngineStats & { name: string }) {
   return (
     <div className="flex flex-wrap gap-6">
       <div className="hud-stat">
@@ -41,20 +35,24 @@ function HudStats({ name, score, lives, level, powerUp = 0 }: {
         <div className="l">Puntuación</div>
         <div className="v">{fmt(score)}</div>
       </div>
-      <div className="hud-stat lives">
-        <div className="l">Vidas</div>
-        <div className="v">{"♥ ".repeat(lives).trim() || "—"}</div>
-      </div>
-      <div className="hud-stat level">
-        <div className="l">Nivel</div>
-        <div className="v">{String(level).padStart(2, "0")}</div>
-      </div>
-      {powerUp > 0 && (
-        <div className="hud-stat power">
-          <div className="l">3X</div>
-          <div className="v">{powerUp.toFixed(1)}s</div>
+      {lives !== undefined && (
+        <div className="hud-stat lives">
+          <div className="l">Vidas</div>
+          <div className="v">{"♥ ".repeat(lives).trim() || "—"}</div>
         </div>
       )}
+      {level !== undefined && (
+        <div className="hud-stat level">
+          <div className="l">Nivel</div>
+          <div className="v">{String(level).padStart(2, "0")}</div>
+        </div>
+      )}
+      {extras.map((x) => (
+        <div key={x.key} className={x.tone ? `hud-stat tone-${x.tone}` : "hud-stat"}>
+          <div className="l">{x.label}</div>
+          <div className="v">{x.value}</div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -161,8 +159,6 @@ function GameOverModal({ game, score, onRestart }: { game: Game; score: number; 
 
 // ── Partida real con motor en canvas ──────────────────────────────────────────
 
-const INITIAL_STATS: EngineStats = { score: 0, lives: 3, level: 1, powerUp: 0 };
-
 const FINE_POINTER = "(any-pointer: fine)";
 function subscribePointer(onChange: () => void) {
   const mq = window.matchMedia(FINE_POINTER);
@@ -178,10 +174,10 @@ function useHasFinePointer() {
   );
 }
 
-function EnginePlayer({ game, factory }: { game: Game; factory: EngineFactory }) {
+function EnginePlayer({ game, entry }: { game: Game; entry: EngineEntry }) {
   const name = usePlayerName();
   const engine = useRef<GameCanvasHandle>(null);
-  const [stats, setStats] = useState<EngineStats>(INITIAL_STATS);
+  const [stats, setStats] = useState<EngineStats>(entry.initialStats);
   const [engineState, setEngineState] = useState<EngineState>("ready");
   const [over, setOver] = useState(false);
   const [finalScore, setFinalScore] = useState(0);
@@ -214,6 +210,7 @@ function EnginePlayer({ game, factory }: { game: Game; factory: EngineFactory })
 
   const restart = () => {
     setOver(false);
+    setStats(entry.initialStats);
     engine.current?.restart();
   };
 
@@ -238,7 +235,7 @@ function EnginePlayer({ game, factory }: { game: Game; factory: EngineFactory })
         <div className="crt-screen">
           <GameCanvas
             ref={engine}
-            factory={factory}
+            factory={entry.factory}
             onStats={setStats}
             onStateChange={onStateChange}
             onGameOver={onGameOver}
@@ -246,26 +243,23 @@ function EnginePlayer({ game, factory }: { game: Game; factory: EngineFactory })
           {engineState === "ready" && (
             <div className="crt-content start-overlay z-[5]">
               <div>
-                <div className="pixel neon-cyan start-title">PULSA ESPACIO PARA EMPEZAR</div>
+                <div className="pixel neon-cyan start-title">{entry.startLabel}</div>
                 <table className="controls-table mono">
                   <caption className="sr-only">Controles</caption>
                   <tbody>
-                    <tr>
-                      <th scope="row"><kbd>←</kbd> <kbd>→</kbd></th>
-                      <td>ROTAR</td>
-                    </tr>
-                    <tr>
-                      <th scope="row"><kbd>↑</kbd></th>
-                      <td>PROPULSAR</td>
-                    </tr>
-                    <tr>
-                      <th scope="row"><kbd>ESPACIO</kbd></th>
-                      <td>DISPARAR</td>
-                    </tr>
-                    <tr>
-                      <th scope="row"><kbd>P</kbd> <kbd>ESC</kbd></th>
-                      <td>PAUSA</td>
-                    </tr>
+                    {entry.controls.map(({ keys, action }) => (
+                      <tr key={action}>
+                        <th scope="row">
+                          {keys.map((k, i) => (
+                            <Fragment key={k}>
+                              {i > 0 && " "}
+                              <kbd>{k}</kbd>
+                            </Fragment>
+                          ))}
+                        </th>
+                        <td>{action}</td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
                 {!hasKeyboard && <div className="pixel keyboard-warning">REQUIERE TECLADO</div>}

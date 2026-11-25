@@ -8,6 +8,7 @@ import type {
   EngineStats,
   GameEngine,
 } from "./types";
+import { statsEqual } from "./stats";
 
 // ── Paleta neón (mismos valores que los tokens de app/globals.css) ────────────
 const COLOR_SHIP = "#00f5ff"; // --cyan
@@ -417,20 +418,17 @@ export const createAsteroids: EngineFactory = (
   }
 
   function emitStats() {
+    const powerUp = Math.round(ship.tripleShot * 10) / 10;
     const stats: EngineStats = {
       score,
       lives,
       level,
-      powerUp: Math.round(ship.tripleShot * 10) / 10,
+      extras:
+        powerUp > 0
+          ? [{ key: "3x", label: "3X", value: `${powerUp.toFixed(1)}s`, tone: "green" }]
+          : [],
     };
-    if (
-      lastStats &&
-      lastStats.score === stats.score &&
-      lastStats.lives === stats.lives &&
-      lastStats.level === stats.level &&
-      lastStats.powerUp === stats.powerUp
-    )
-      return;
+    if (statsEqual(lastStats, stats)) return;
     lastStats = stats;
     cb.onStats(stats);
   }

@@ -635,8 +635,14 @@ a { color: inherit; text-decoration: none; }
 .hud-stat .v { font-family: var(--pixel); font-size: 16px; color: var(--cyan); text-shadow: 0 0 6px rgba(0,245,255,0.5); }
 .hud-stat.lives .v { color: var(--magenta); text-shadow: 0 0 6px rgba(255,0,110,0.5); }
 .hud-stat.level .v { color: var(--yellow); text-shadow: 0 0 6px rgba(245,255,0,0.5); }
-.hud-stat.power .l { color: var(--green); }
-.hud-stat.power .v { color: var(--green); text-shadow: 0 0 6px rgba(0,255,136,0.55); font-variant-numeric: tabular-nums; }
+/* Extras de cada motor (EngineStats.extras[].tone); sin tone → cyan por defecto. */
+.hud-stat[class*="tone-"] .v { font-variant-numeric: tabular-nums; }
+.hud-stat.tone-green .l { color: var(--green); }
+.hud-stat.tone-green .v { color: var(--green); text-shadow: 0 0 6px rgba(0,255,136,0.55); }
+.hud-stat.tone-magenta .l { color: var(--magenta); }
+.hud-stat.tone-magenta .v { color: var(--magenta); text-shadow: 0 0 6px rgba(255,0,110,0.5); }
+.hud-stat.tone-yellow .l { color: var(--yellow); }
+.hud-stat.tone-yellow .v { color: var(--yellow); text-shadow: 0 0 6px rgba(245,255,0,0.5); }
 .hud-actions { display: flex; gap: 10px; }
 
 .crt {
