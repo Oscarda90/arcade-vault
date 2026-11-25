@@ -1,4 +1,5 @@
 import { createAsteroids } from "./asteroids";
+import { createBreakout } from "./breakout";
 import { createTetris } from "./tetris";
 import type { EngineFactory, EngineStats } from "./types";
 
@@ -33,6 +34,16 @@ export const ENGINES: Partial<Record<string, EngineEntry>> = {
       { keys: ["P", "ESC"], action: "PAUSA" },
     ],
     initialStats: { score: 0, level: 1, extras: [{ key: "lines", label: "Líneas", value: "0" }] },
+  },
+  "bloque-buster": {
+    factory: createBreakout,
+    startLabel: "PULSA ESPACIO PARA EMPEZAR",
+    controls: [
+      { keys: ["←", "→", "RATÓN"], action: "MOVER" },
+      { keys: ["ESPACIO", "CLIC"], action: "LANZAR" },
+      { keys: ["P", "ESC"], action: "PAUSA" },
+    ],
+    initialStats: { score: 0, lives: 3, level: 1, extras: [] },
   },
 };
 
