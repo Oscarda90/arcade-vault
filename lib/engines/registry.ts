@@ -1,5 +1,6 @@
 import { createAsteroids } from "./asteroids";
 import { createBreakout } from "./breakout";
+import { createSnake } from "./snake";
 import { createTetris } from "./tetris";
 import type { EngineFactory, EngineStats } from "./types";
 
@@ -44,6 +45,19 @@ export const ENGINES: Partial<Record<string, EngineEntry>> = {
       { keys: ["P", "ESC"], action: "PAUSA" },
     ],
     initialStats: { score: 0, lives: 3, level: 1, extras: [] },
+  },
+  serpentina: {
+    factory: createSnake,
+    startLabel: "PULSA ESPACIO PARA EMPEZAR",
+    controls: [
+      { keys: ["←", "↑", "→", "↓", "WASD"], action: "GIRAR" },
+      { keys: ["P", "ESC"], action: "PAUSA" },
+    ],
+    initialStats: {
+      score: 0,
+      level: 1,
+      extras: [{ key: "length", label: "Longitud", value: "3" }],
+    },
   },
 };
 
